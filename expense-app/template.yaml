@@ -10,6 +10,24 @@ Globals:
   Function:
     Timeout: 3
 
+Parameters:
+  plaidClientId:
+    Type: String
+    Description: Plaid client Id
+    Default: clientID
+  plaidSecret:
+    Type: String
+    Description: Plaid secret
+    Default: secret
+  plaidUsername:
+    Type: String
+    Description: Username for plaid bank account
+    Default: username
+  plaidPassword:
+    Type: String
+    Description: password for plaid bank api
+    Default: password
+
 Resources:
   HelloWorldFunction:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
@@ -19,6 +37,12 @@ Resources:
       Runtime: nodejs14.x
       Architectures:
         - x86_64
+      Environment:
+        Variables:
+          PLAID_CLIENT_ID: !Ref plaidClientId
+          PLAID_SECRET: !Ref plaidSecret
+          PLAID_USERNAME: !Ref plaidUsername
+          PLAID_PASSWORD: !Ref plaidPassword
       Events:
         InvocationLevel:
           Type: Schedule
