@@ -29,7 +29,7 @@ Parameters:
     Default: password
 
 Resources:
-  HelloWorldFunction:
+  CheckWeeksExpenseLambda:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
     Properties:
       CodeUri: lambdas/dist
@@ -48,6 +48,36 @@ Resources:
           Type: Schedule
           Properties:
             Schedule: cron(0 7 * * MON *) # 7AM every monday
+  ExpenseStore:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Expenses Log
+      KeySchema:
+        - AttributeName: "Period"
+          KeyType: "HASH"
+        -
+        - AttributeName: "Account"
+          KeyType: "RANGE"
+        -
+      AttributeDefinitions:
+        - AttributeName: "Period"
+          AttributeType: "S"
+        - AttributeName: "Account"
+          AttributeType: "S"
+        - AttributeName: "Id"
+          AttributeType: "S"
+        - AttributeName: "Executed_at"
+          AttributeType: "S"
+        - AttributeName: "Target"
+          AttributeType: "N"
+        - AttributeName: "Actual"
+          AttributeType: "N"
+        - AttributeName: "Difference"
+          AttributeType: "N"
+        -
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
 
 Outputs:
   HelloWorldApi:

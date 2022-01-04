@@ -9,6 +9,10 @@ import {
 
 const { PLAID_CLIENT_ID, PLAID_SECRET } = process.env;
 
+/* This is a timer triggered Lambda designed to initiate the flow on the expense
+tracker at a specific time each week. When started this function will calculate
+the weeks expense, then pass off to Twilio to send a message. Twilio side will
+handle some basic logic before passing back to another Lambda for logging */
 export const lambdaHandler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
@@ -86,4 +90,6 @@ export const lambdaHandler = async (
   });
 
   // Get target value and compare.
+
+  // Send values off to Twilio for SMS
 };
