@@ -1,4 +1,4 @@
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
+import { DynamoDB } from "aws-sdk";
 import {
   Configuration,
   PlaidApi,
@@ -6,16 +6,25 @@ import {
   Transaction,
   TransactionsGetRequest,
 } from "plaid";
+import { getISOWeek } from "date-fns";
+import { Twilio } from "twilio";
 
-const { PLAID_CLIENT_ID, PLAID_SECRET } = process.env;
+const {
+  PLAID_CLIENT_ID,
+  PLAID_SECRET,
+  ACCOUNT_SID,
+  AUTH_TOKEN,
+  SEND_TO,
+  FROM_NUMBER,
+} = process.env;
+
+const dynamo = new DynamoDB.DocumentClient();
 
 /* This is a timer triggered Lambda designed to initiate the flow on the expense
 tracker at a specific time each week. When started this function will calculate
 the weeks expense, then pass off to Twilio to send a message. Twilio side will
 handle some basic logic before passing back to another Lambda for logging */
-export const lambdaHandler = async (
-  event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> => {
+export const lambdaHandler = async (): Promise<void> => {
   // const queries = JSON.stringify(event.queryStringParameters);
   // return {
   //   statusCode: 200,
@@ -78,8 +87,8 @@ export const lambdaHandler = async (
     moreTransactions.forEach((mtxs) => {
       transactions.concat(mtxs.data.transactions);
     });
-  } catch (err) {
-    console.error("Plaid transactions request failed!");
+  } catch (plaidError) {
+    console.error(`Plaid transactions request failed: ${plaidError}`);
   }
 
   let totalSpend = 0;
@@ -89,7 +98,52 @@ export const lambdaHandler = async (
     if (transaction.amount > 0) totalSpend += transaction.amount;
   });
 
-  // Get target value and compare.
+  try {
+    await dynamo.get(
+      {
+        TableName: "Expenses Log",
+        Key: {
+          Year: oneWeekAgo.getFullYear(),
+          Week: getISOWeek(oneWeekAgo),
+        },
+        ProjectionExpression: "account, target",
+      },
+      (err, data) => {
+        if (err || !data.Item) {
+          throw new Error("Retrieval failed");
+        }
 
-  // Send values off to Twilio for SMS
+        const budgetted = data.Item.target;
+        const difference = totalSpend - budgetted;
+
+        let inBudget = false;
+        if (difference > 0) {
+          inBudget = true;
+        }
+
+        const twilioClient = new Twilio(ACCOUNT_SID, AUTH_TOKEN);
+
+        // Let's create a studio flow execution which will send the
+        // information to the user & ask for any changes.
+        try {
+          twilioClient.studio.flows("sid").executions.create({
+            to: SEND_TO,
+            from: FROM_NUMBER,
+            parameters: {
+              inBudget,
+              difference,
+            },
+          });
+        } catch (studioError) {
+          console.error(
+            `Failed to create studio flow execution: ${studioError}`
+          );
+        }
+      }
+    );
+  } catch (dynamoError) {
+    console.error(
+      `Failed to retrieve last weeks expense record: ${dynamoError}`
+    );
+  }
 };

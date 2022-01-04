@@ -27,6 +27,18 @@ Parameters:
     Type: String
     Description: password for plaid bank api
     Default: password
+  twilioAccountSid:
+    Type: String
+    Description: Account SID of Twilio account
+  twilioAuthToken:
+    Type: String
+    Description: Auth Token of Twilio account
+  sendToNumber:
+    Type: string
+    Description: E164 formatted number to send messages to
+  fromNumber:
+    Type: string
+    Description: E164 formatted Twilio number messages are sent from
 
 Resources:
   CheckWeeksExpenseLambda:
@@ -43,6 +55,10 @@ Resources:
           PLAID_SECRET: !Ref plaidSecret
           PLAID_USERNAME: !Ref plaidUsername
           PLAID_PASSWORD: !Ref plaidPassword
+          ACCOUNT_SID: !Ref twilioAccountSid
+          AUTH_TOKEN: !Ref twilioAuthToken
+          SEND_TO: !ref sendToNumber
+          FROM_NUMBER: !ref fromNumber
       Events:
         InvocationLevel:
           Type: Schedule
@@ -53,26 +69,26 @@ Resources:
     Properties:
       TableName: Expenses Log
       KeySchema:
-        - AttributeName: "Period"
+        - AttributeName: "year"
           KeyType: "HASH"
         -
-        - AttributeName: "Account"
+        - AttributeName: "week"
           KeyType: "RANGE"
         -
       AttributeDefinitions:
-        - AttributeName: "Period"
-          AttributeType: "S"
-        - AttributeName: "Account"
-          AttributeType: "S"
-        - AttributeName: "Id"
-          AttributeType: "S"
-        - AttributeName: "Executed_at"
-          AttributeType: "S"
-        - AttributeName: "Target"
+        - AttributeName: "year"
           AttributeType: "N"
-        - AttributeName: "Actual"
+        - AttributeName: "week"
           AttributeType: "N"
-        - AttributeName: "Difference"
+        - AttributeName: "id"
+          AttributeType: "S"
+        - AttributeName: "executed_at"
+          AttributeType: "S"
+        - AttributeName: "target"
+          AttributeType: "N"
+        - AttributeName: "actual"
+          AttributeType: "N"
+        - AttributeName: "difference"
           AttributeType: "N"
         -
       ProvisionedThroughput:
