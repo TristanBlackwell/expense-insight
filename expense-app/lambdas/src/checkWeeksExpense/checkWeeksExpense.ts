@@ -25,11 +25,7 @@ tracker at a specific time each week. When started this function will calculate
 the weeks expense, then pass off to Twilio to send a message. Twilio side will
 handle some basic logic before passing back to another Lambda for logging */
 export const lambdaHandler = async (): Promise<void> => {
-  // const queries = JSON.stringify(event.queryStringParameters);
-  // return {
-  //   statusCode: 200,
-  //   body: `Queries: ${queries}`,
-  // };
+  const twilioClient = new Twilio(ACCOUNT_SID, AUTH_TOKEN);
 
   const configuration = new Configuration({
     basePath: PlaidEnvironments.sandbox,
@@ -89,6 +85,12 @@ export const lambdaHandler = async (): Promise<void> => {
     });
   } catch (plaidError) {
     console.error(`Plaid transactions request failed: ${plaidError}`);
+    await twilioClient.messages.create({
+      body: "Oops! I had an issue getting to Plaid... maybe worth checking the logs.",
+      from: FROM_NUMBER,
+      to: SEND_TO,
+    });
+    return;
   }
 
   let totalSpend = 0;
@@ -106,11 +108,17 @@ export const lambdaHandler = async (): Promise<void> => {
           Year: oneWeekAgo.getFullYear(),
           Week: getISOWeek(oneWeekAgo),
         },
-        ProjectionExpression: "account, target",
+        ProjectionExpression: "year, week, account, target",
       },
-      (err, data) => {
-        if (err || !data.Item) {
-          throw new Error("Retrieval failed");
+      async (getErr, data) => {
+        if (getErr || !data.Item) {
+          console.error(`Retrieval failed: ${getErr}`);
+          await twilioClient.messages.create({
+            body: "Oops! I had an issue getting the latest expenses... maybe worth checking the logs.",
+            from: FROM_NUMBER,
+            to: SEND_TO,
+          });
+          return;
         }
 
         const budgetted = data.Item.target;
@@ -121,7 +129,30 @@ export const lambdaHandler = async (): Promise<void> => {
           inBudget = true;
         }
 
-        const twilioClient = new Twilio(ACCOUNT_SID, AUTH_TOKEN);
+        // Update last weeks row now we have the actual spend & difference
+        await dynamo.update(
+          {
+            TableName: "Expenses Log",
+            Key: {
+              Year: data.Item.year,
+              Week: data.Item.week,
+            },
+            UpdateExpression:
+              "set executed_at = :ea, actual = :a, difference = :d",
+            ExpressionAttributeValues: {
+              ":ea": new Date(),
+              ":a": totalSpend,
+              ":d": difference,
+            },
+            ReturnValues: "NONE",
+          },
+          (updateErr) => {
+            if (updateErr) {
+              console.error(`update failed: ${updateErr}`);
+              throw new Error("update failed");
+            }
+          }
+        );
 
         // Let's create a studio flow execution which will send the
         // information to the user & ask for any changes.
@@ -138,12 +169,19 @@ export const lambdaHandler = async (): Promise<void> => {
           console.error(
             `Failed to create studio flow execution: ${studioError}`
           );
+          await twilioClient.messages.create({
+            body: "Oops! I had an issue creating a new flow execution... maybe worth checking the logs.",
+            from: FROM_NUMBER,
+            to: SEND_TO,
+          });
         }
       }
     );
   } catch (dynamoError) {
-    console.error(
-      `Failed to retrieve last weeks expense record: ${dynamoError}`
-    );
+    await twilioClient.messages.create({
+      body: "Oops! something went wrong with Dynamo... maybe worth checking the logs.",
+      from: FROM_NUMBER,
+      to: SEND_TO,
+    });
   }
 };

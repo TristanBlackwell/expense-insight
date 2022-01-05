@@ -41,14 +41,24 @@ Parameters:
     Description: E164 formatted Twilio number messages are sent from
 
 Resources:
+  # We could seperate out the modules here but for this use case
+  # have decided to group them in a single layer
+  ExpenseAppDependenciesLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: expense-app-dependencies
+      Description: dependencies required for the expense app lambda's
+      ContentUri: lambdas/dist/dependencies
   CheckWeeksExpenseLambda:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
     Properties:
-      CodeUri: lambdas/dist
+      CodeUri: lambdas/dist/checkWeeksExpense
       Handler: checkWeeksExpense.lambdaHandler
       Runtime: nodejs14.x
       Architectures:
         - x86_64
+      Layers:
+        - !Ref ExpenseAppDependenciesLayer
       Environment:
         Variables:
           PLAID_CLIENT_ID: !Ref plaidClientId
@@ -64,6 +74,28 @@ Resources:
           Type: Schedule
           Properties:
             Schedule: cron(0 7 * * MON *) # 7AM every monday
+  IvrCompleteLambda:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: lambdas/dist/ivrComplete
+      Handler: ivrComplete.lambdaHandler
+      Runtime: nodejs14.x
+      Architectures:
+        - x86_64
+      Layers:
+        - !Ref ExpenseAppDependenciesLayer
+      Environment:
+        Variables:
+          ACCOUNT_SID: !Ref twilioAccountSid
+          AUTH_TOKEN: !Ref twilioAuthToken
+          SEND_TO: !ref sendToNumber
+          FROM_NUMBER: !ref fromNumber
+      Events:
+        IvrComplete:
+          Type: Api
+          Properties:
+            Path: /{target}
+            Method: get
   ExpenseStore:
     Type: AWS::DynamoDB::Table
     Properties:
