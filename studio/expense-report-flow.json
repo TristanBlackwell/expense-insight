@@ -1,0 +1,316 @@
+{
+  "description": "A New Flow",
+  "states": [
+    {
+      "name": "Trigger",
+      "type": "trigger",
+      "transitions": [
+        {
+          "event": "incomingMessage"
+        },
+        {
+          "event": "incomingCall"
+        },
+        {
+          "next": "split_in_budget",
+          "event": "incomingRequest"
+        },
+        {
+          "event": "incomingParent"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 0,
+          "y": 0
+        }
+      }
+    },
+    {
+      "name": "split_in_budget",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "event": "noMatch"
+        },
+        {
+          "next": "send_and_reply_in_budget",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "If value equal_to true",
+              "arguments": ["{{flow.data.inBudget}}"],
+              "type": "equal_to",
+              "value": "true"
+            }
+          ]
+        },
+        {
+          "next": "send_and_reply_out_budget",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "If value equal_to false",
+              "arguments": ["{{flow.data.inBudget}}"],
+              "type": "equal_to",
+              "value": "false"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "input": "{{flow.data.inBudget}}",
+        "offset": {
+          "x": 10,
+          "y": 220
+        }
+      }
+    },
+    {
+      "name": "send_and_reply_in_budget",
+      "type": "send-and-wait-for-reply",
+      "transitions": [
+        {
+          "next": "split_new_target_decision_1",
+          "event": "incomingMessage"
+        },
+        {
+          "event": "timeout"
+        },
+        {
+          "event": "deliveryFailure"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -320,
+          "y": 480
+        },
+        "service": "{{trigger.message.InstanceSid}}",
+        "channel": "{{trigger.message.ChannelSid}}",
+        "from": "{{flow.channel.address}}",
+        "body": "Nice! you were in budget this week. 🙌\n\nThe target was {{flow.data.target}} and you spent {{flow.data.actual}}.\n\nWould you like to set a new target for this week?",
+        "timeout": "3600"
+      }
+    },
+    {
+      "name": "split_new_target_decision_1",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "event": "noMatch"
+        },
+        {
+          "next": "send_and_reply_new_target",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "If value matches_any_of y,Y,yes,1,sure",
+              "arguments": [
+                "{{widgets.send_and_reply_in_budget.inbound.Body}}"
+              ],
+              "type": "matches_any_of",
+              "value": "y,Y,yes,Yes,1,sure,Sure"
+            }
+          ]
+        },
+        {
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "If value matches_any_of n,N,no,No,2,nah,Nah",
+              "arguments": [
+                "{{widgets.send_and_reply_in_budget.inbound.Body}}"
+              ],
+              "type": "matches_any_of",
+              "value": "n,N,no,No,2,nah,Nah"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "input": "{{widgets.send_and_reply_in_budget.inbound.Body}}",
+        "offset": {
+          "x": -500,
+          "y": 730
+        }
+      }
+    },
+    {
+      "name": "send_and_reply_out_budget",
+      "type": "send-and-wait-for-reply",
+      "transitions": [
+        {
+          "next": "split_new_target_decision_2",
+          "event": "incomingMessage"
+        },
+        {
+          "event": "timeout"
+        },
+        {
+          "event": "deliveryFailure"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 570,
+          "y": 480
+        },
+        "service": "{{trigger.message.InstanceSid}}",
+        "channel": "{{trigger.message.ChannelSid}}",
+        "from": "{{flow.channel.address}}",
+        "body": "Ahhh! you weren't in budget this week. 😕\n\nThe target was {{flow.data.target}} but you spent {{flow.data.actual}}.\n\nWould you like to set a new target for this week?",
+        "timeout": "3600"
+      }
+    },
+    {
+      "name": "split_new_target_decision_2",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "event": "noMatch"
+        },
+        {
+          "next": "send_and_reply_new_target",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "If value matches_any_of y,Y,yes,1,sure",
+              "arguments": [
+                "{{widgets.send_and_reply_in_budget.inbound.Body}}"
+              ],
+              "type": "matches_any_of",
+              "value": "y,Y,yes,Yes,1,sure,Sure"
+            }
+          ]
+        },
+        {
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "If value matches_any_of n,N,no,No,2,nah,Nah",
+              "arguments": [
+                "{{widgets.send_and_reply_in_budget.inbound.Body}}"
+              ],
+              "type": "matches_any_of",
+              "value": "n,N,no,No,2,nah,Nah"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "input": "{{widgets.send_and_reply_in_budget.inbound.Body}}",
+        "offset": {
+          "x": 360,
+          "y": 730
+        }
+      }
+    },
+    {
+      "name": "run_ivr_complete",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "send_message_done",
+          "event": "success"
+        },
+        {
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 190,
+          "y": 1490
+        },
+        "method": "GET",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8"
+      }
+    },
+    {
+      "name": "send_and_reply_new_target",
+      "type": "send-and-wait-for-reply",
+      "transitions": [
+        {
+          "next": "split_new_target",
+          "event": "incomingMessage"
+        },
+        {
+          "event": "timeout"
+        },
+        {
+          "event": "deliveryFailure"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 120,
+          "y": 1020
+        },
+        "service": "{{trigger.message.InstanceSid}}",
+        "channel": "{{trigger.message.ChannelSid}}",
+        "from": "{{flow.channel.address}}",
+        "body": "What would you like your new target to be?",
+        "timeout": "3600"
+      }
+    },
+    {
+      "name": "split_new_target",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "next": "send_and_reply_new_target",
+          "event": "noMatch"
+        },
+        {
+          "next": "run_ivr_complete",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "If value less_than 1000",
+              "arguments": [
+                "{{widgets.send_and_reply_new_target.inbound.Body}}"
+              ],
+              "type": "less_than",
+              "value": "1000"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "input": "{{widgets.send_and_reply_new_target.inbound.Body}}",
+        "offset": {
+          "x": 130,
+          "y": 1240
+        }
+      }
+    },
+    {
+      "name": "send_message_done",
+      "type": "send-message",
+      "transitions": [
+        {
+          "event": "sent"
+        },
+        {
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 190,
+          "y": 1730
+        },
+        "service": "{{trigger.message.InstanceSid}}",
+        "channel": "{{trigger.message.ChannelSid}}",
+        "from": "{{flow.channel.address}}",
+        "to": "{{contact.channel.address}}",
+        "body": "All done, see you next week! 👋"
+      }
+    }
+  ],
+  "initial_state": "Trigger",
+  "flags": {
+    "allow_concurrent_calls": true
+  }
+}

@@ -162,6 +162,8 @@ export const lambdaHandler = async (): Promise<void> => {
             from: FROM_NUMBER,
             parameters: {
               inBudget,
+              target: data.Item.target,
+              actual: totalSpend,
               difference,
             },
           });
