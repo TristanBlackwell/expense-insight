@@ -14,7 +14,7 @@ is taken from the request and used to set the target for next weeks trigger. */
 export const lambdaHandler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
-  const { target } = event.pathParameters;
+  const { target } = event.queryStringParameters;
 
   const twilioClient = new Twilio(ACCOUNT_SID, AUTH_TOKEN);
 

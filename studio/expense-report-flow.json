@@ -12,7 +12,7 @@
           "event": "incomingCall"
         },
         {
-          "next": "split_in_budget",
+          "next": "set_target",
           "event": "incomingRequest"
         },
         {
@@ -21,8 +21,8 @@
       ],
       "properties": {
         "offset": {
-          "x": 0,
-          "y": 0
+          "x": -10,
+          "y": -310
         }
       }
     },
@@ -115,6 +115,7 @@
           ]
         },
         {
+          "next": "run_ivr_complete",
           "event": "match",
           "conditions": [
             {
@@ -185,6 +186,7 @@
           ]
         },
         {
+          "next": "run_ivr_complete",
           "event": "match",
           "conditions": [
             {
@@ -220,11 +222,18 @@
       ],
       "properties": {
         "offset": {
-          "x": 190,
-          "y": 1490
+          "x": 40,
+          "y": 1700
         },
         "method": "GET",
-        "content_type": "application/x-www-form-urlencoded;charset=utf-8"
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "parameters": [
+          {
+            "value": "{{flow.variables.target}}",
+            "key": "target"
+          }
+        ],
+        "url": "https://aws/ivrcomplete"
       }
     },
     {
@@ -263,7 +272,7 @@
           "event": "noMatch"
         },
         {
-          "next": "run_ivr_complete",
+          "next": "set_new_target",
           "event": "match",
           "conditions": [
             {
@@ -298,14 +307,58 @@
       ],
       "properties": {
         "offset": {
-          "x": 190,
-          "y": 1730
+          "x": 50,
+          "y": 1960
         },
         "service": "{{trigger.message.InstanceSid}}",
         "channel": "{{trigger.message.ChannelSid}}",
         "from": "{{flow.channel.address}}",
         "to": "{{contact.channel.address}}",
         "body": "All done, see you next week! 👋"
+      }
+    },
+    {
+      "name": "set_target",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "split_in_budget",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "value": "{{flow.data.target}}",
+            "key": "target"
+          }
+        ],
+        "offset": {
+          "x": 10,
+          "y": -10
+        }
+      }
+    },
+    {
+      "name": "set_new_target",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "run_ivr_complete",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "value": "{{widgets.send_and_reply_new_target.inbound.Body}}",
+            "key": "target"
+          }
+        ],
+        "offset": {
+          "x": 180,
+          "y": 1470
+        }
       }
     }
   ],

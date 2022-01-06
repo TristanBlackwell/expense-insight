@@ -69,11 +69,13 @@ Resources:
           AUTH_TOKEN: !Ref twilioAuthToken
           SEND_TO: !ref sendToNumber
           FROM_NUMBER: !ref fromNumber
+      Policies:
+        - DynamoDBReadPolicy
       Events:
         InvocationLevel:
           Type: Schedule
           Properties:
-            Schedule: cron(0 7 * * MON *) # 7AM every monday
+            Schedule: cron(0 10 * * MON *) # 10AM every monday
   IvrCompleteLambda:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
     Properties:
@@ -90,12 +92,20 @@ Resources:
           AUTH_TOKEN: !Ref twilioAuthToken
           SEND_TO: !ref sendToNumber
           FROM_NUMBER: !ref fromNumber
+      Policies:
+        - DynamoDBWritePolicy
       Events:
         IvrComplete:
           Type: Api
           Properties:
-            Path: /{target}
+            Path: /ivrComplete
             Method: get
+            RestApiId:
+              Ref: TwilioApi
+            RequestParameters:
+              - method.request.querystring.target:
+                Required: true
+                Caching: false
   ExpenseStore:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -126,6 +136,19 @@ Resources:
       ProvisionedThroughput:
         ReadCapacityUnits: 5
         WriteCapacityUnits: 5
+  TwilioApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: Twilio-Api
+      StageName: v1
+      Auth:
+        ApiKeyRequired: true
+  ApiKey:
+    Type: AWS::ApiGateway::ApiKey
+    Properties: !Join ["-", [TwilioApi, "ApiKey"]]
+    Description: API key for calls from Twilio
+    Enabled: true
+    GenerateDistinctId: false
 
 Outputs:
   HelloWorldApi:
