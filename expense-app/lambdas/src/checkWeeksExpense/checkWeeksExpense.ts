@@ -101,84 +101,74 @@ export const lambdaHandler = async (): Promise<void> => {
   });
 
   try {
-    await dynamo.get(
-      {
-        TableName: "Expenses Log",
+    const data = await dynamo
+      .get({
+        TableName: "expenses-log",
         Key: {
           Year: oneWeekAgo.getFullYear(),
           Week: getISOWeek(oneWeekAgo),
         },
         ProjectionExpression: "year, week, account, target",
-      },
-      async (getErr, data) => {
-        if (getErr || !data.Item) {
-          console.error(`Retrieval failed: ${getErr}`);
-          await twilioClient.messages.create({
-            body: "Oops! I had an issue getting the latest expenses... maybe worth checking the logs.",
-            from: FROM_NUMBER,
-            to: SEND_TO,
-          });
-          return;
-        }
+      })
+      .promise();
 
-        const budgetted = data.Item.target;
-        const difference = totalSpend - budgetted;
+    if (!data.Item) {
+      console.error("Retrieval failed");
+      await twilioClient.messages.create({
+        body: "Oops! I had an issue getting the latest expenses... maybe worth checking the logs.",
+        from: FROM_NUMBER,
+        to: SEND_TO,
+      });
+      return;
+    }
 
-        let inBudget = false;
-        if (difference > 0) {
-          inBudget = true;
-        }
+    const budgetted = data.Item.target;
+    const difference = totalSpend - budgetted;
 
-        // Update last weeks row now we have the actual spend & difference
-        await dynamo.update(
-          {
-            TableName: "Expenses Log",
-            Key: {
-              Year: data.Item.year,
-              Week: data.Item.week,
-            },
-            UpdateExpression:
-              "set executed_at = :ea, actual = :a, difference = :d",
-            ExpressionAttributeValues: {
-              ":ea": new Date(),
-              ":a": totalSpend,
-              ":d": difference,
-            },
-            ReturnValues: "NONE",
-          },
-          (updateErr) => {
-            if (updateErr) {
-              console.error(`update failed: ${updateErr}`);
-              throw new Error("update failed");
-            }
-          }
-        );
+    let inBudget = false;
+    if (difference > 0) {
+      inBudget = true;
+    }
 
-        // Let's create a studio flow execution which will send the
-        // information to the user & ask for any changes.
-        try {
-          twilioClient.studio.flows("sid").executions.create({
-            to: SEND_TO,
-            from: FROM_NUMBER,
-            parameters: {
-              inBudget,
-              target: data.Item.target,
-              actual: totalSpend,
-              difference,
-            },
-          });
-        } catch (studioError) {
-          console.error(
-            `Failed to create studio flow execution: ${studioError}`
-          );
-          await twilioClient.messages.create({
-            body: "Oops! I had an issue creating a new flow execution... maybe worth checking the logs.",
-            from: FROM_NUMBER,
-            to: SEND_TO,
-          });
-        }
-      }
-    );
+    // Update last weeks row now we have the actual spend & difference
+    await dynamo
+      .update({
+        TableName: "Expenses Log",
+        Key: {
+          Year: data.Item.year,
+          Week: data.Item.week,
+        },
+        UpdateExpression: "set executed_at = :ea, actual = :a, difference = :d",
+        ExpressionAttributeValues: {
+          ":ea": new Date(),
+          ":a": totalSpend,
+          ":d": difference,
+        },
+        ReturnValues: "NONE",
+      })
+      .promise();
+
+    // Let's create a studio flow execution which will send the
+    // information to the user & ask for any changes.
+    try {
+      await twilioClient.studio.flows("sid").executions.create({
+        to: SEND_TO,
+        from: FROM_NUMBER,
+        parameters: {
+          inBudget,
+          target: data.Item.target,
+          actual: totalSpend,
+          difference,
+        },
+      });
+    } catch (studioError) {
+      console.error(`Failed to create studio flow execution: ${studioError}`);
+      await twilioClient.messages.create({
+        body: "Oops! I had an issue creating a new flow execution... maybe worth checking the logs.",
+        from: FROM_NUMBER,
+        to: SEND_TO,
+      });
+    }
   } catch (dynamoError) {
     await twilioClient.messages.create({
       body: "Oops! something went wrong with Dynamo... maybe worth checking the logs.",

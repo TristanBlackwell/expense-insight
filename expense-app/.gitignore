@@ -1,6 +1,13 @@
 
 # Created by https://www.gitignore.io/api/osx,node,linux,windows
 
+# Build files for sam deploy
+**/.aws-sam
+
+# Configuration information for deployments
+**/samconfig.toml
+
+# Build files for Lambdas and dependencies
 **/dist
 
 ### Linux ###

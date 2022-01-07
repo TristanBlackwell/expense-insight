@@ -34,10 +34,10 @@ Parameters:
     Type: String
     Description: Auth Token of Twilio account
   sendToNumber:
-    Type: string
+    Type: String
     Description: E164 formatted number to send messages to
   fromNumber:
-    Type: string
+    Type: String
     Description: E164 formatted Twilio number messages are sent from
 
 Resources:
@@ -49,6 +49,11 @@ Resources:
       LayerName: expense-app-dependencies
       Description: dependencies required for the expense app lambda's
       ContentUri: lambdas/dist/dependencies
+      CompatibleRuntimes:
+        - nodejs14.x
+      RetentionPolicy: Retain
+    Metadata:
+      BuildMethod: nodejs14.x
   CheckWeeksExpenseLambda:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
     Properties:
@@ -67,21 +72,23 @@ Resources:
           PLAID_PASSWORD: !Ref plaidPassword
           ACCOUNT_SID: !Ref twilioAccountSid
           AUTH_TOKEN: !Ref twilioAuthToken
-          SEND_TO: !ref sendToNumber
-          FROM_NUMBER: !ref fromNumber
+          SEND_TO: !Ref sendToNumber
+          FROM_NUMBER: !Ref fromNumber
       Policies:
-        - DynamoDBReadPolicy
+        - DynamoDBReadPolicy:
+            TableName: !Ref ExpenseStore
       Events:
         InvocationLevel:
           Type: Schedule
           Properties:
-            Schedule: cron(0 10 * * MON *) # 10AM every monday
+            Schedule: cron(0 10 ? * MON *) # 10AM every monday
   IvrCompleteLambda:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
     Properties:
       CodeUri: lambdas/dist/ivrComplete
       Handler: ivrComplete.lambdaHandler
       Runtime: nodejs14.x
+      Timeout: 15
       Architectures:
         - x86_64
       Layers:
@@ -90,10 +97,11 @@ Resources:
         Variables:
           ACCOUNT_SID: !Ref twilioAccountSid
           AUTH_TOKEN: !Ref twilioAuthToken
-          SEND_TO: !ref sendToNumber
-          FROM_NUMBER: !ref fromNumber
+          SEND_TO: !Ref sendToNumber
+          FROM_NUMBER: !Ref fromNumber
       Policies:
-        - DynamoDBWritePolicy
+        - DynamoDBWritePolicy:
+            TableName: !Ref ExpenseStore
       Events:
         IvrComplete:
           Type: Api
@@ -104,35 +112,22 @@ Resources:
               Ref: TwilioApi
             RequestParameters:
               - method.request.querystring.target:
-                Required: true
-                Caching: false
+                  Required: true
+                  Caching: false
   ExpenseStore:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: Expenses Log
+      TableName: expenses-log
       KeySchema:
         - AttributeName: "year"
           KeyType: "HASH"
-        -
         - AttributeName: "week"
           KeyType: "RANGE"
-        -
       AttributeDefinitions:
         - AttributeName: "year"
           AttributeType: "N"
         - AttributeName: "week"
           AttributeType: "N"
-        - AttributeName: "id"
-          AttributeType: "S"
-        - AttributeName: "executed_at"
-          AttributeType: "S"
-        - AttributeName: "target"
-          AttributeType: "N"
-        - AttributeName: "actual"
-          AttributeType: "N"
-        - AttributeName: "difference"
-          AttributeType: "N"
-        -
       ProvisionedThroughput:
         ReadCapacityUnits: 5
         WriteCapacityUnits: 5
@@ -145,18 +140,23 @@ Resources:
         ApiKeyRequired: true
   ApiKey:
     Type: AWS::ApiGateway::ApiKey
-    Properties: !Join ["-", [TwilioApi, "ApiKey"]]
-    Description: API key for calls from Twilio
-    Enabled: true
-    GenerateDistinctId: false
-
-Outputs:
-  HelloWorldApi:
-    Description: "API Gateway endpoint URL for Prod stage for Hello World function"
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello/"
-  HelloWorldFunction:
-    Description: "Hello World Lambda Function ARN"
-    Value: !GetAtt HelloWorldFunction.Arn
-  HelloWorldFunctionIamRole:
-    Description: "Implicit IAM Role created for Hello World function"
-    Value: !GetAtt HelloWorldFunctionRole.Arn
+    Properties:
+      Name: !Join ["-", [TwilioApi, "ApiKey"]]
+      Description: API key for calls from Twilio
+      Enabled: true
+      GenerateDistinctId: false
+  ApiUsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    DependsOn: TwilioApi
+    Properties:
+      ApiStages:
+        - ApiId: !Ref TwilioApi
+          Stage: v1
+      Description: !Join ["-", [TwilioApi, "UsagePlan"]]
+      UsagePlanName: !Join ["-", [TwilioApi, "UsagePlan"]]
+  ApiUsagePlanKey:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties:
+      KeyId: !Ref ApiKey
+      KeyType: API_KEY
+      UsagePlanId: !Ref ApiUsagePlan
