@@ -11,6 +11,10 @@ Globals:
     Timeout: 3
 
 Parameters:
+  plaidItemAccessToken:
+    Type: String
+    Description: Item access token for Plaid
+    Default: itemAccessToken
   plaidClientId:
     Type: String
     Description: Plaid client Id
@@ -19,14 +23,6 @@ Parameters:
     Type: String
     Description: Plaid secret
     Default: secret
-  plaidUsername:
-    Type: String
-    Description: Username for plaid bank account
-    Default: username
-  plaidPassword:
-    Type: String
-    Description: password for plaid bank api
-    Default: password
   twilioAccountSid:
     Type: String
     Description: Account SID of Twilio account
@@ -60,16 +56,16 @@ Resources:
       CodeUri: lambdas/dist/checkWeeksExpense
       Handler: checkWeeksExpense.lambdaHandler
       Runtime: nodejs14.x
+      Timeout: 30
       Architectures:
         - x86_64
       Layers:
         - !Ref ExpenseAppDependenciesLayer
       Environment:
         Variables:
+          PLAID_ITEM_ACCESS_TOKEN: !Ref plaidItemAccessToken
           PLAID_CLIENT_ID: !Ref plaidClientId
           PLAID_SECRET: !Ref plaidSecret
-          PLAID_USERNAME: !Ref plaidUsername
-          PLAID_PASSWORD: !Ref plaidPassword
           ACCOUNT_SID: !Ref twilioAccountSid
           AUTH_TOKEN: !Ref twilioAuthToken
           SEND_TO: !Ref sendToNumber

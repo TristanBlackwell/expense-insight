@@ -10,6 +10,7 @@ import { getISOWeek } from "date-fns";
 import { Twilio } from "twilio";
 
 const {
+  PLAID_ITEM_ACCESS_TOKEN,
   PLAID_CLIENT_ID,
   PLAID_SECRET,
   ACCOUNT_SID,
@@ -50,7 +51,7 @@ export const lambdaHandler = async (): Promise<void> => {
     .toString()}-${oneWeekAgo.getDate().toString()}`;
 
   const request: TransactionsGetRequest = {
-    access_token: "",
+    access_token: PLAID_ITEM_ACCESS_TOKEN,
     start_date: oneWeekAgoString,
     end_date: todayString,
   };
