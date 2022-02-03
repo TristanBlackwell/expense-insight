@@ -1,3 +1,9 @@
+<div style="text-align: center;">
+
+![Expense Insight](/docs/images/expense-insight.PNG)
+
+</div>
+
 # Expense Insight
 
 Expense Insight is a small program to help notify you of your weekly spending via a short SMS message.

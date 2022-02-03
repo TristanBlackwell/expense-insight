@@ -134,7 +134,7 @@ export const lambdaHandler = async (): Promise<void> => {
     // Update last weeks row now we have the actual spend & difference
     await dynamo
       .update({
-        TableName: "Expenses Log",
+        TableName: "expenses-log",
         Key: {
           Year: data.Item.year,
           Week: data.Item.week,
